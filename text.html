@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Terrain & Material Generator Pro</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #sidebar-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 360px;
+            max-width: 90vw;
+            height: 100%;
+            background: rgba(20, 20, 20, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #sidebar-panel::-webkit-scrollbar { width: 6px; }
+        #sidebar-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .card {
+            background-color: #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card-header {
+            background-color: #424242;
+            color: white;
+            text-align: center;
+            padding: 6px;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin: -5px -5px 5px -5px;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            color: #333;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .file-btn {
+            background-color: #616161;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+        .file-btn:hover { background-color: #424242; }
+        .file-btn.highlight { background-color: #d32f2f; }
+        .file-btn.highlight:hover { background-color: #b71c1c; }
+        
+        input[type="file"] { display: none; }
+        select { outline: none; }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #222;
+            font-weight: 600;
+        }
+        .color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .dot-red { background-color: #f44336; }
+        .dot-green { background-color: #4caf50; }
+        .dot-blue { background-color: #2196f3; }
+        .dot-black { background-color: #222; }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            background: #bdbdbd;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #212121;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .val-display { font-size: 0.7rem; color: #555; }
+
+        .action-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        .btn-download {
+            background-color: #5c6bc0;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            flex: 1;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-download:hover { background-color: #3f51b5; }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="sidebar-panel">
+        
+        <!-- Shape Morphing & Video -->
+        <div class="card">
+            <div class="card-header">Chế độ hiển thị 3D</div>
+            
+            <div class="section-label">Loại Hình Học</div>
+            <select id="geo-mode" class="file-btn" style="background-color: #212121;">
+                <option value="plane">Mặt phẳng (Plane)</option>
+                <option value="sphere">Mặt cầu (Sphere)</option>
+                <option value="particles">Hạt (Particles)</option>
+                <option value="voxel">Khối (Voxel)</option>
+            </select>
+
+            <div class="section-label" style="margin-top: 10px;">Video thời gian thực</div>
+            <label for="videoFile" class="file-btn highlight" id="lbl-videoFile">Tải lên file MP4</label>
+            <input type="file" id="videoFile" accept="video/mp4,video/webm">
+        </div>
+
+        <!-- Maps Upload -->
+        <div class="card">
+            <div class="card-header">KẾT CẤU & ĐỊA HÌNH</div>
+            
+            <div class="section-label">TEXTURE</div>
+            <label for="texFile" class="file-btn" id="lbl-texFile">chọn tệp .png/.jpg</label>
+            <input type="file" id="texFile" accept="image/*">
+
+            <div class="section-label">RGB MAP</div>
+            <label for="rgbFile" class="file-btn" id="lbl-rgbFile">chọn tệp .png</label>
+            <input type="file" id="rgbFile" accept="image/*">
+
+            <div class="section-label">ORM MAP</div>
+            <label for="ormFile" class="file-btn" id="lbl-ormFile">chọn tệp .png</label>
+            <input type="file" id="ormFile" accept="image/*">
+
+            <div class="section-label">NORMAL / HEIGHT MAP</div>
+            <label for="normalFile" class="file-btn" id="lbl-normalFile">chọn tệp .png</label>
+            <input type="file" id="normalFile" accept="image/*">
+        </div>
+
+        <!-- Material Tweaks -->
+        <div class="card">
+            <div class="card-header">chỉnh sửa màu sắc rgb</div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-red"></span>Kênh R <span class="val-display" id="val-rgb-r">100%</span></div>
+                <input type="range" id="rgb-r" min="0" max="100" step="1" value="100">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-green"></span>Kênh G <span class="val-display" id="val-rgb-g">100%</span></div>
+                <input type="range" id="rgb-g" min="0" max="100" step="1" value="100">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-blue"></span>Kênh B <span class="val-display" id="val-rgb-b">100%</span></div>
+                <input type="range" id="rgb-b" min="0" max="100" step="1" value="100">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">thuộc tính orm</div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-red"></span>Đổ bóng (AO) <span class="val-display" id="val-orm-r">100%</span></div>
+                <input type="range" id="orm-r" min="0" max="100" step="1" value="100">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-green"></span>Độ nhám (Roughness) <span class="val-display" id="val-orm-g">100%</span></div>
+                <input type="range" id="orm-g" min="0" max="100" step="1" value="100">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-blue"></span>Kim loại (Metalness) <span class="val-display" id="val-orm-b">100%</span></div>
+                <input type="range" id="orm-b" min="0" max="100" step="1" value="100">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">ĐỊA HÌNH 3D (DISPLACEMENT)</div>
+            <div class="slider-group">
+                <div class="slider-header"><span class="color-dot dot-black"></span>Biên độ Chiều cao <span class="val-display" id="val-height">20%</span></div>
+                <input type="range" id="normal-height" min="0" max="100" step="1" value="20">
+            </div>
+        </div>
+
+        <div class="action-row">
+            <button class="btn-download" id="btn-download">Tải xuống 3D Model (.glb)</button>
+        </div>
+
+    </div>
+
+    <!-- Three.js Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+
+    <script>
+        // Setup nhãn tải file
+        function setupFileLabel(inputId) {
+            document.getElementById(inputId).addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) document.getElementById('lbl-' + inputId).textContent = file.name;
+            });
+        }
+        setupFileLabel('texFile');
+        setupFileLabel('rgbFile');
+        setupFileLabel('ormFile');
+        setupFileLabel('normalFile');
+        setupFileLabel('videoFile');
+
+        // --- KHỞI TẠO CƠ BẢN ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Ánh sáng
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(5, 8, 5);
+        scene.add(dirLight);
+
+        // Vật liệu chung (cho Plane & Sphere)
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            roughness: 1.0,
+            metalness: 1.0,
+            displacementScale: 0.4 // 20% max (2.0)
+        });
+        const textureLoader = new THREE.TextureLoader();
+
+        // --- KHỞI TẠO CÁC LOẠI ĐỊA HÌNH (MORPHING) ---
+        let currentMode = 'plane';
+
+        // 1. Plane
+        const geoPlane = new THREE.PlaneGeometry(4, 4, 256, 256);
+        geoPlane.rotateX(-Math.PI / 2);
+        const meshPlane = new THREE.Mesh(geoPlane, material);
+        
+        // 2. Sphere
+        const geoSphere = new THREE.SphereGeometry(2, 256, 256);
+        const meshSphere = new THREE.Mesh(geoSphere, material);
+
+        // 3. Particles (Hạt)
+        const geoParticles = new THREE.PlaneGeometry(4, 4, 128, 128); // 129x129 vertices
+        geoParticles.rotateX(-Math.PI / 2);
+        // Lưu trữ lại vị trí gốc để tính toán Real-time CPU height
+        const baseParticlePositions = new Float32Array(geoParticles.attributes.position.array);
+        const matParticles = new THREE.PointsMaterial({ size: 0.02, color: 0xffffff });
+        const particles = new THREE.Points(geoParticles, matParticles);
+
+        // 4. Voxels (Khối)
+        const voxelGridSize = 100;
+        const voxelSize = 4 / voxelGridSize;
+        const geoVoxel = new THREE.BoxGeometry(voxelSize*0.8, voxelSize*0.8, voxelSize*0.8);
+        const instancedVoxels = new THREE.InstancedMesh(geoVoxel, material.clone(), voxelGridSize * voxelGridSize);
+        const dummy = new THREE.Object3D();
+
+        // Object đang hiển thị trên scene
+        let activeObject = meshPlane;
+        scene.add(activeObject);
+
+        // Logic đổi hình dạng
+        document.getElementById('geo-mode').addEventListener('change', (e) => {
+            currentMode = e.target.value;
+            scene.remove(activeObject);
+            if (currentMode === 'plane') activeObject = meshPlane;
+            else if (currentMode === 'sphere') activeObject = meshSphere;
+            else if (currentMode === 'particles') activeObject = particles;
+            else if (currentMode === 'voxel') activeObject = instancedVoxels;
+            scene.add(activeObject);
+        });
+
+        // --- HỖ TRỢ ĐỌC ĐỊA HÌNH REAL-TIME (VIDEO / ẢNH) BẰNG CPU ---
+        let activeVideo = null;
+        let activeImage = null;
+        // Canvas tàng hình dùng để trích xuất màu lấy độ cao
+        const sampleCanvas = document.createElement('canvas');
+        sampleCanvas.width = 129; sampleCanvas.height = 129;
+        const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+
+        // Tải Video MP4
+        document.getElementById('videoFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            
+            if (activeVideo) activeVideo.pause();
+            const video = document.createElement('video');
+            video.src = url;
+            video.crossOrigin = 'anonymous';
+            video.loop = true; video.muted = true; video.playsInline = true;
+            video.play();
+            activeVideo = video;
+            activeImage = null;
+
+            // Đưa video thành Texture vào GPU
+            const videoTex = new THREE.VideoTexture(video);
+            videoTex.wrapS = videoTex.wrapT = THREE.RepeatWrapping;
+            
+            material.map = videoTex;
+            material.displacementMap = videoTex;
+            matParticles.map = videoTex;
+            instancedVoxels.material.map = videoTex;
+            
+            material.needsUpdate = true;
+            matParticles.needsUpdate = true;
+            instancedVoxels.material.needsUpdate = true;
+        });
+
+        // Xử lý File Ảnh tải lên (Texture tĩnh)
+        document.getElementById('texFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            textureLoader.load(url, (tex) => {
+                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                material.map = tex;
+                matParticles.map = tex;
+                instancedVoxels.material.map = tex;
+                material.needsUpdate = true;
+                URL.revokeObjectURL(url);
+            });
+        });
+
+        // Tải Normal / Height Map
+        document.getElementById('normalFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            
+            // Xử lý tạo Image Element để render CPU cho Voxel / Particles
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+                activeImage = img;
+                activeVideo = null; // Ưu tiên ảnh tĩnh
+            };
+
+            textureLoader.load(url, (tex) => {
+                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                material.displacementMap = tex;
+                material.needsUpdate = true;
+            });
+        });
+
+        document.getElementById('ormFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            textureLoader.load(URL.createObjectURL(file), (tex) => {
+                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                material.aoMap = tex;
+                material.roughnessMap = tex;
+                material.metalnessMap = tex;
+                material.needsUpdate = true;
+            });
+        });
+
+        // --- CÁC THANH TRƯỢT TỪ 0 ĐẾN 100% ---
+        function linkSlider(sliderId, displayId, callback) {
+            document.getElementById(sliderId).addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                document.getElementById(displayId).textContent = val + '%';
+                callback(val / 100); // Trả về tỷ lệ 0.0 - 1.0
+            });
+        }
+
+        linkSlider('rgb-r', 'val-rgb-r', (val) => { material.color.r = val; matParticles.color.r = val; instancedVoxels.material.color.r = val; });
+        linkSlider('rgb-g', 'val-rgb-g', (val) => { material.color.g = val; matParticles.color.g = val; instancedVoxels.material.color.g = val; });
+        linkSlider('rgb-b', 'val-rgb-b', (val) => { material.color.b = val; matParticles.color.b = val; instancedVoxels.material.color.b = val; });
+        
+        linkSlider('orm-r', 'val-orm-r', (val) => { material.aoMapIntensity = val; instancedVoxels.material.aoMapIntensity = val; });
+        linkSlider('orm-g', 'val-orm-g', (val) => { material.roughness = val; instancedVoxels.material.roughness = val; });
+        linkSlider('orm-b', 'val-orm-b', (val) => { material.metalness = val; instancedVoxels.material.metalness = val; });
+
+        // Thanh trượt Normal/Height Map (0-100% mapping ra scale 0.0 -> 2.0 max)
+        linkSlider('normal-height', 'val-height', (val) => {
+            const scale = val * 2.0; 
+            material.displacementScale = scale;
+            instancedVoxels.material.displacementScale = scale;
+        });
+
+        // --- VÒNG LẶP RENDER (ANIMATE REAL-TIME) ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Nếu đang bật chế độ Particles hoặc Voxel, dùng CPU xử lý Height Map để ép khối nhô lên chuẩn xác
+            if (currentMode === 'particles' || currentMode === 'voxel') {
+                const source = activeVideo && activeVideo.readyState >= activeVideo.HAVE_CURRENT_DATA ? activeVideo : activeImage;
+                
+                if (source) {
+                    const res = currentMode === 'particles' ? 129 : voxelGridSize;
+                    sampleCtx.drawImage(source, 0, 0, res, res);
+                    const imgData = sampleCtx.getImageData(0, 0, res, res).data;
+                    const hScale = (document.getElementById('normal-height').value / 100) * 2.0;
+
+                    if (currentMode === 'particles') {
+                        const pos = geoParticles.attributes.position;
+                        for(let i=0; i < pos.count; i++) {
+                            // Lấy độ sáng pixel làm độ cao (Y)
+                            const r = imgData[i*4];
+                            pos.setY(i, baseParticlePositions[i*3 + 1] + (r/255) * hScale);
+                        }
+                        pos.needsUpdate = true;
+                    } 
+                    else if (currentMode === 'voxel') {
+                        let i = 0;
+                        for(let y = 0; y < voxelGridSize; y++) {
+                            for(let x = 0; x < voxelGridSize; x++) {
+                                const r = imgData[(y * voxelGridSize + x) * 4];
+                                const h = (r / 255) * hScale + 0.02; // Tối thiểu 0.02 để ko biến mất
+
+                                dummy.position.set((x - voxelGridSize/2) * voxelSize, h / 2, (y - voxelGridSize/2) * voxelSize);
+                                dummy.scale.set(1, h, 1);
+                                dummy.updateMatrix();
+                                instancedVoxels.setMatrixAt(i++, dummy.matrix);
+                            }
+                        }
+                        instancedVoxels.instanceMatrix.needsUpdate = true;
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Xuất file GLB (Lưu ý: Export Voxel/Particles sẽ gặp giới hạn kỹ thuật của GLTFExporter, Plane & Sphere lưu ngon)
+        document.getElementById('btn-download').addEventListener('click', function() {
+            const exporter = new THREE.GLTFExporter();
+            exporter.parse(activeObject, function(result) {
+                const blob = new Blob([result], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `3d_terrain_${currentMode}.glb`;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, { binary: true });
+        });
+
+        // Responsive UI
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
